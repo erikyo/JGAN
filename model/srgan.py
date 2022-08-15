@@ -5,8 +5,8 @@ from tensorflow.python.keras.applications.vgg19 import VGG19
 from model.common import pixel_shuffle, normalize_01, normalize_m11, denormalize_m11
 
 LR_SIZE = 24
-HR_SIZE = 96
-
+SIZE = 1
+HR_SIZE = LR_SIZE * SIZE
 
 def upsample(x_in, num_filters):
     x = Conv2D(num_filters, kernel_size=3, padding='same')(x_in)

@@ -1,7 +1,125 @@
 import os
+import glob
+import random
+from typing_extensions import Self
+
 import tensorflow as tf
+import numpy as np
+
+from PIL import Image
+from io import BytesIO
 
 from tensorflow.python.data.experimental import AUTOTUNE
+
+class DATASET:
+    def __init__(self,
+                 scale=2,
+                 batch_size=16,
+                 folder='.images\\',
+                 training='smalltest',
+                 caches_dir='caches',
+                 downgrade='low'
+                 ):
+
+        _scales = [1, 2, 3, 4, 8]
+
+        if scale in _scales:
+            self.scale = scale
+        else:
+            raise ValueError(f'scale must be in ${_scales}')
+
+        self.images_dir = folder
+        self.training_dir = os.path.join(self.images_dir, training)
+        print("training directory: ", self.training_dir)
+        self.caches_dir = os.path.join(self.images_dir, caches_dir)
+        self.downgrade = downgrade
+
+        self.image_ids = range(0, batch_size - 1)
+
+        os.makedirs(caches_dir, exist_ok=True)
+
+    def gen_dataset(self, name=''):
+        if name == '':
+            raise ValueError(f'No name provided')
+
+        # if path doesn't existing create the imageset
+        if name == 'hr':
+            ds = self._images_dataset(self._image_files('hr')).cache(self._cache_file(name))
+        elif not os.path.exists(self._images_dir(name)):
+            destination_directory = self._images_dir(name)
+            print('path not exist', destination_directory)
+            os.makedirs(destination_directory)
+            self.generate_subset(self.training_dir, destination_directory)
+            ds = self._images_dataset(self._image_files(name)).cache(self._cache_file(name))
+        else:
+            destination_directory = self._images_dir(name)
+            print('path exist', destination_directory)
+            ds = self._images_dataset(self._image_files(name)).cache(self._cache_file(name))
+
+        if not os.path.exists(self._cache_index(name)):
+            self._populate_cache(ds, self._cache_file(name))
+
+        return ds
+
+    def generate_subset(self, source_dir, dest_dir, jpeg_min=30, jpeg_max=85 ):
+        image_paths = glob.glob(os.path.join(source_dir, "*.*"))
+
+        for path in image_paths:
+            jpg_quality = random.randint(jpeg_min, jpeg_max)
+            dest_file = os.path.join(dest_dir, os.path.basename(path))
+            raw_image = Image.open(path).convert("RGB")
+            print(path, ' @quality ', jpg_quality)
+            raw_image.save(dest_file, format="JPEG", quality=jpg_quality)
+
+    def _cache_file(self, variant):
+        return os.path.join(self.caches_dir, f'{variant}_{self.downgrade}_X{self.scale}.cache')
+
+    def _cache_index(self, variant):
+        return f'{self._cache_file(variant)}.index'
+
+    def _images_dir(self, variant):
+        return os.path.join(self.images_dir, f'temp_{variant}')
+
+    def _image_files(self, variant):
+        if variant == 'hr':
+            images_dir = self.training_dir
+        else:
+            images_dir = self._images_dir(variant)
+
+        images = []
+        for filename in os.listdir(images_dir):
+            img = np.array(os.path.join(images_dir, filename))
+            if img is not None:
+                images.append(img)
+
+        return images
+
+    def build_dataset(self, batch_size=16, repeat_count=None, random_transform=False, min_jpeg_compression=30, max_jpeg_compression=70):
+        ds = tf.data.Dataset.zip((self.gen_dataset('lr'), self.gen_dataset('hr')))
+        ds = ds.map(lambda lr, hr: random_crop(lr, hr, scale=self.scale, hr_crop_size=48), num_parallel_calls=AUTOTUNE)
+        ds = ds.map(random_rotate, num_parallel_calls=AUTOTUNE)
+        ds = ds.map(random_flip, num_parallel_calls=AUTOTUNE)
+        ds = ds.batch(batch_size)
+        ds = ds.repeat(repeat_count)
+        ds = ds.prefetch(buffer_size=AUTOTUNE)
+        return ds        
+
+
+    @staticmethod
+    def _images_dataset(image_files):
+        print(image_files)
+        ds = tf.data.Dataset.from_tensor_slices(image_files)
+        ds = ds.map(tf.io.read_file)
+        ds = ds.map(lambda x: tf.image.decode_image(x, channels=3), num_parallel_calls=AUTOTUNE)
+        return ds
+
+    @staticmethod
+    def _populate_cache(ds, cache_file):
+        print(f'Caching decoded images in {cache_file} ...')
+        for _ in ds: pass
+        print(f'Cached decoded images in {cache_file}.')
+    
+    
 
 
 class DIV2K:
@@ -14,7 +132,7 @@ class DIV2K:
 
         self._ntire_2018 = True
 
-        _scales = [2, 3, 4, 8]
+        _scales = [1, 2, 3, 4, 8]
 
         if scale in _scales:
             self.scale = scale
@@ -55,7 +173,7 @@ class DIV2K:
     def __len__(self):
         return len(self.image_ids)
 
-    def dataset(self, batch_size=16, repeat_count=None, random_transform=True):
+    def dataset(self, batch_size=16, random_transform=True, repeat_count=None):
         ds = tf.data.Dataset.zip((self.lr_dataset(), self.hr_dataset()))
         if random_transform:
             ds = ds.map(lambda lr, hr: random_crop(lr, hr, scale=self.scale), num_parallel_calls=AUTOTUNE)
@@ -151,9 +269,9 @@ class DIV2K:
 # -----------------------------------------------------------
 
 
-def random_crop(lr_img, hr_img, hr_crop_size=96, scale=2):
+def random_crop(lr_img, hr_img, hr_crop_size=96, scale=1):
     lr_crop_size = hr_crop_size // scale
-    lr_img_shape = tf.shape(lr_img)[:2]
+    lr_img_shape = tf.shape(lr_img)
 
     lr_w = tf.random.uniform(shape=(), maxval=lr_img_shape[1] - lr_crop_size + 1, dtype=tf.int32)
     lr_h = tf.random.uniform(shape=(), maxval=lr_img_shape[0] - lr_crop_size + 1, dtype=tf.int32)
@@ -165,7 +283,6 @@ def random_crop(lr_img, hr_img, hr_crop_size=96, scale=2):
     hr_img_cropped = hr_img[hr_h:hr_h + hr_crop_size, hr_w:hr_w + hr_crop_size]
 
     return lr_img_cropped, hr_img_cropped
-
 
 def random_flip(lr_img, hr_img):
     rn = tf.random.uniform(shape=(), maxval=1)
@@ -180,6 +297,13 @@ def random_rotate(lr_img, hr_img):
     return tf.image.rot90(lr_img, rn), tf.image.rot90(hr_img, rn)
 
 
+def random_jpeg(lr_img, hr_img, min_quality=50, max_quality=96):
+    return tf.image.random_jpeg_quality(lr_img, min_quality, max_quality), hr_img
+
+
+
+
+
 # -----------------------------------------------------------
 #  IO
 # -----------------------------------------------------------
@@ -190,3 +314,4 @@ def download_archive(file, target_dir, extract=True):
     target_dir = os.path.abspath(target_dir)
     tf.keras.utils.get_file(file, source_url, cache_subdir=target_dir, extract=extract)
     os.remove(os.path.join(target_dir, file))
+    
