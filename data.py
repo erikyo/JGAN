@@ -16,7 +16,7 @@ class DATASET:
                  scale=2,
                  batch_size=16,
                  folder='.images\\',
-                 training='smalltest',
+                 training='test',
                  caches_dir='caches',
                  downgrade='low'
                  ):
@@ -29,9 +29,15 @@ class DATASET:
             raise ValueError(f'scale must be in ${_scales}')
 
         self.images_dir = folder
+        
+        #training
         self.training_dir = os.path.join(self.images_dir, training)
         print("training directory: ", self.training_dir)
+        
+        #cache
         self.caches_dir = os.path.join(self.images_dir, caches_dir)
+        os.makedirs(self.caches_dir, exist_ok=True)
+                
         self.downgrade = downgrade
 
         self.image_ids = range(0, batch_size - 1)
@@ -61,7 +67,7 @@ class DATASET:
 
         return ds
 
-    def generate_subset(self, source_dir, dest_dir, jpeg_min=30, jpeg_max=85 ):
+    def generate_subset(self, source_dir, dest_dir, jpeg_min=40, jpeg_max=60 ):
         image_paths = glob.glob(os.path.join(source_dir, "*.*"))
 
         for path in image_paths:
@@ -94,7 +100,7 @@ class DATASET:
 
         return images
 
-    def build_dataset(self, batch_size=16, repeat_count=None, random_transform=False, min_jpeg_compression=30, max_jpeg_compression=70):
+    def build_dataset(self, batch_size=16, repeat_count=None):
         ds = tf.data.Dataset.zip((self.gen_dataset('lr'), self.gen_dataset('hr')))
         ds = ds.map(lambda lr, hr: random_crop(lr, hr, scale=self.scale, hr_crop_size=48), num_parallel_calls=AUTOTUNE)
         ds = ds.map(random_rotate, num_parallel_calls=AUTOTUNE)

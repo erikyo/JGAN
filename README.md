@@ -1,6 +1,6 @@
 ![Travis CI](https://travis-ci.com/krasserm/super-resolution.svg?branch=master)
 
-# Single Image Super-Resolution with EDSR, WDSR and SRGAN
+# Image Restoration / upscaling with EDSR, WDSR and SRGAN 
 
 A [Tensorflow 2.x](https://www.tensorflow.org/beta) based implementation of
 
@@ -10,21 +10,14 @@ A [Tensorflow 2.x](https://www.tensorflow.org/beta) based implementation of
   of the [NTIRE 2018](http://www.vision.ee.ethz.ch/ntire18/) super-resolution challenge (realistic tracks).
 - [Photo-Realistic Single Image Super-Resolution Using a Generative Adversarial Network](https://arxiv.org/abs/1609.04802) (SRGAN).
 
-This is a complete re-write of the old Keras/Tensorflow 1.x based implementation available [here](https://github.com/krasserm/super-resolution/tree/previous).
-Some parts are still work in progress but you can already train models as described in the papers via a high-level training 
-API. Furthermore, you can also [fine-tune](#srgan-for-fine-tuning-edsr-and-wdsr-models) EDSR and WDSR models in an SRGAN 
-context. [Training](#training) and [usage](#getting-started) examples are given in the notebooks
-
-- [example-edsr.ipynb](example-edsr.ipynb)
-- [example-wdsr.ipynb](example-wdsr.ipynb)
-- [example-srgan.ipynb](example-srgan.ipynb) 
+This is a fork of the @krasserm repo that i've changed in order to reverse the operation and to use SRGAN to turn lossy photos into lossless ones.
+The idea behind my repo is pretty similar, when the original one allowed to enlarge images up to 8 times I use this method to redefine the 8 pixel square created by jpg artifacts
 
 A `DIV2K` [data provider](#div2k-dataset) automatically downloads [DIV2K](https://data.vision.ee.ethz.ch/cvl/DIV2K/) 
 training and validation images of given scale (2, 3, 4 or 8) and downgrade operator ("bicubic", "unknown", "mild" or 
 "difficult"). 
 
-**Important:** if you want to evaluate the pre-trained models with a dataset other than DIV2K please read 
-[this comment](https://github.com/krasserm/super-resolution/issues/19#issuecomment-586114933) (and replies) first.  
+A `DATASET` [data provider](#dataset) given a source folder automatically create a copy of that with randomly compressed image
 
 ## Environment setup
 
@@ -43,7 +36,8 @@ It also demonstrates how EDSR and WDSR models can be fine-tuned with SRGAN (see 
 
 ## Getting started 
 
-Examples in this section require following pre-trained weights for running (see also example notebooks):  
+- srTraining.py
+- srResolve.py
 
 ### Pre-trained weights
 

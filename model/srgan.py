@@ -38,8 +38,11 @@ def sr_resnet(num_filters=64, num_res_blocks=16):
     x = BatchNormalization()(x)
     x = Add()([x_1, x])
 
-    x = upsample(x, num_filters * 4)
-    x = upsample(x, num_filters * 4)
+    if SIZE == 4:
+        x = upsample(x, num_filters * 4)
+        x = upsample(x, num_filters * 4)
+    elif SIZE == 2:
+        x = upsample(x, num_filters * 4)
 
     x = Conv2D(3, kernel_size=9, padding='same', activation='tanh')(x)
     x = Lambda(denormalize_m11)(x)

@@ -4,13 +4,10 @@ import tensorflow as tf
 from model import evaluate
 from model import srgan
 
-from tensorflow.keras.applications.vgg19 import preprocess_input
-from tensorflow.keras.losses import BinaryCrossentropy
-from tensorflow.keras.losses import MeanAbsoluteError
-from tensorflow.keras.losses import MeanSquaredError
-from tensorflow.keras.metrics import Mean
+from keras.applications.vgg19 import preprocess_input
+from keras.losses import BinaryCrossentropy, MeanAbsoluteError, MeanSquaredError
+from keras.metrics import Mean
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 
 
 class Trainer:
@@ -98,7 +95,7 @@ class EdsrTrainer(Trainer):
     def __init__(self,
                  model,
                  checkpoint_dir,
-                 learning_rate=PiecewiseConstantDecay(boundaries=[200000], values=[1e-4, 5e-5])):
+                 learning_rate=tf.keras.optimizers.schedules.PiecewiseConstantDecay(boundaries=[200000], values=[1e-4, 5e-5])):
         super().__init__(model, loss=MeanAbsoluteError(), learning_rate=learning_rate, checkpoint_dir=checkpoint_dir)
 
     def train(self, train_dataset, valid_dataset, steps=300000, evaluate_every=1000, save_best_only=True):
@@ -109,7 +106,7 @@ class WdsrTrainer(Trainer):
     def __init__(self,
                  model,
                  checkpoint_dir,
-                 learning_rate=PiecewiseConstantDecay(boundaries=[200000], values=[1e-3, 5e-4])):
+                 learning_rate=tf.keras.optimizers.schedules.PiecewiseConstantDecay(boundaries=[200000], values=[1e-3, 5e-4])):
         super().__init__(model, loss=MeanAbsoluteError(), learning_rate=learning_rate, checkpoint_dir=checkpoint_dir)
 
     def train(self, train_dataset, valid_dataset, steps=300000, evaluate_every=1000, save_best_only=True):
@@ -135,7 +132,7 @@ class SrganTrainer:
                  generator,
                  discriminator,
                  content_loss='VGG54',
-                 learning_rate=PiecewiseConstantDecay(boundaries=[100000], values=[1e-4, 1e-5])):
+                 learning_rate=tf.keras.optimizers.schedules.PiecewiseConstantDecay(boundaries=[100000], values=[1e-4, 1e-5])):
 
         if content_loss == 'VGG22':
             self.vgg = srgan.vgg_22()
